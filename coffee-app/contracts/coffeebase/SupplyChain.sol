@@ -1,14 +1,13 @@
 pragma solidity ^0.4.24;
 
+import "../coffeecore/Ownable.sol";
 import "../coffeeaccesscontrol/FarmerRole.sol";
 import "../coffeeaccesscontrol/DistributorRole.sol";
 import "../coffeeaccesscontrol/RetailerRole.sol";
 import "../coffeeaccesscontrol/ConsumerRole.sol";
 
 // Define a contract 'Supplychain'
-contract SupplyChain is FarmerRole, ConsumerRole, RetailerRole, DistributorRole {
-    // Define 'owner'
-    address owner;
+contract SupplyChain is Ownable, FarmerRole, ConsumerRole, RetailerRole, DistributorRole {
 
     // Define a variable called 'upc' for Universal Product Code (UPC)
     uint256 upc;
@@ -65,12 +64,6 @@ contract SupplyChain is FarmerRole, ConsumerRole, RetailerRole, DistributorRole 
     event Shipped(uint256 upc);
     event Received(uint256 upc);
     event Purchased(uint256 upc);
-
-    // Define a modifer that checks to see if msg.sender == owner of the contract
-    modifier onlyOwner() {
-        require(msg.sender == owner);
-        _;
-    }
 
     // Define a modifer that verifies the Caller
     modifier verifyCaller(address _address) {
@@ -144,15 +137,16 @@ contract SupplyChain is FarmerRole, ConsumerRole, RetailerRole, DistributorRole 
     // and set 'sku' to 1
     // and set 'upc' to 1
     constructor() public payable {
-        owner = msg.sender;
+        //owner = msg.sender;
+        TransferOwnership(owner(), msg.sender);
         sku = 1;
         upc = 1;
     }
 
     // Define a function 'kill' if required
     function kill() public {
-        if (msg.sender == owner) {
-            selfdestruct(owner);
+        if (msg.sender == owner()) {
+            selfdestruct(owner());
         }
     }
 
@@ -165,7 +159,9 @@ contract SupplyChain is FarmerRole, ConsumerRole, RetailerRole, DistributorRole 
         string _originFarmLatitude,
         string _originFarmLongitude,
         string _productNotes
-    ) public {
+    ) public
+      onlyFarmer
+    {
         // Add the new item as part of Harvest
         items[_upc] = Item({
             upc: _upc,
@@ -197,7 +193,7 @@ contract SupplyChain is FarmerRole, ConsumerRole, RetailerRole, DistributorRole 
         // Call modifier to check if upc has passed previous supply chain stage
         harvested(_upc)
         // Call modifier to verify caller of this function
-        onlyFarmer
+        verifyCaller(items[_upc].originFarmerID)
     {
         // Update the appropriate fields
         items[_upc].itemState = State.Processed;
@@ -211,7 +207,7 @@ contract SupplyChain is FarmerRole, ConsumerRole, RetailerRole, DistributorRole 
         // Call modifier to check if upc has passed previous supply chain stage
         processed(_upc)
         // Call modifier to verify caller of this function
-        onlyOwner
+        verifyCaller(items[_upc].originFarmerID)
     {
         // Update the appropriate fields
         items[_upc].itemState = State.Packed;
@@ -225,7 +221,7 @@ contract SupplyChain is FarmerRole, ConsumerRole, RetailerRole, DistributorRole 
         // Call modifier to check if upc has passed previous supply chain stage
         packed(_upc)
         // Call modifier to verify caller of this function
-        onlyFarmer
+        verifyCaller(items[_upc].originFarmerID)
     {
         // Update the appropriate fields
         items[_upc].itemState = State.ForSale;
@@ -264,7 +260,7 @@ contract SupplyChain is FarmerRole, ConsumerRole, RetailerRole, DistributorRole 
         // Call modifier to check if upc has passed previous supply chain stage
         sold(_upc)
         // Call modifier to verify caller of this function
-        onlyDistributor
+        verifyCaller(items[_upc].ownerID)
     {
         // Update the appropriate fields
         items[_upc].itemState = State.Shipped;
